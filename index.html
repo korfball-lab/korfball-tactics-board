@@ -1,0 +1,193 @@
+<html>
+<head>
+    <title>Korfball Tactical Board</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no">
+    <style>
+        canvas {
+            border: 1px solid black;
+            touch-action: none;
+        }
+    </style>
+</head>
+<body>
+    <canvas id="korfballBoard" width="400" height="400"></canvas>
+    <br>
+    <script>
+        const canvas = document.getElementById('korfballBoard');
+        const ctx = canvas.getContext('2d');
+
+        let players = [];
+        let selectedPlayer = null;
+        let offset = { x: 0, y: 0 };
+        let isDragging = false;
+
+        function initializePlayers() {
+            players = [
+                // Offense team (red)
+                {position: [100, 100], color: 'red', number: '1', gender: 'boy'},
+                {position: [150, 50], color: 'red', number: '2', gender: 'boy'},
+                {position: [50, 300], color: 'red', number: '3', gender: 'girl'},
+                {position: [100, 350], color: 'red', number: '4', gender: 'girl'},
+                // Defense team (blue)
+                {position: [250, 200], color: 'blue', number: '5', gender: 'boy'},
+                {position: [300, 100], color: 'blue', number: '6', gender: 'boy'},
+                {position: [200, 300], color: 'blue', number: '7', gender: 'girl'},
+                {position: [150, 250], color: 'blue', number: '8', gender: 'girl'}
+            ];
+        }
+
+        function drawCourt() {
+    const canvas_width = 400;
+    const canvas_height = 400;
+    const scale = canvas_width / 20; // 20m court width
+    const korf_position_x = canvas_width - (6.67 * scale); // 6.67m from right side
+    const korf_position_y = canvas_height / 2; // Center of the court
+    const free_pass_position_x = korf_position_x - (2.5 * scale); // 2.5m left of korf
+
+    // Court background
+    ctx.fillStyle = '#90EE90';  // Light green
+    ctx.fillRect(0, 0, canvas_width, canvas_height);
+
+    ctx.strokeStyle = 'black';
+    ctx.lineWidth = 2;
+
+    // Outer boundary
+    ctx.strokeRect(0, 0, canvas_width, canvas_height);
+
+    // Free pass circle (complete circle)
+    ctx.beginPath();
+    ctx.arc(free_pass_position_x, korf_position_y, 2.5 * scale, 0, 2 * Math.PI);
+    ctx.stroke();
+
+    // Penalty area (partial circle)
+    ctx.beginPath();
+    ctx.arc(korf_position_x, korf_position_y, 2.5 * scale, -Math.PI/2, Math.PI/2);
+    ctx.stroke();
+
+    // Connecting lines
+    ctx.beginPath();
+    ctx.moveTo(free_pass_position_x, korf_position_y - (2.5 * scale));
+    ctx.lineTo(korf_position_x, korf_position_y - (2.5 * scale));
+    ctx.moveTo(free_pass_position_x, korf_position_y + (2.5 * scale));
+    ctx.lineTo(korf_position_x, korf_position_y + (2.5 * scale));
+    ctx.stroke();
+
+    // Korf position
+    ctx.beginPath();
+    ctx.arc(korf_position_x, korf_position_y, 5, 0, 2 * Math.PI);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.stroke();
+
+    // Free pass spot
+    ctx.beginPath();
+    ctx.arc(free_pass_position_x, korf_position_y, 3, 0, 2 * Math.PI);
+    ctx.fillStyle = 'white';
+    ctx.fill();
+    ctx.stroke();
+}
+
+        function drawPlayer(player) {
+            const {position, color, number, gender} = player;
+            ctx.fillStyle = color;
+            ctx.strokeStyle = 'black';
+            if (gender === 'boy') {
+                ctx.beginPath();
+                ctx.arc(position[0], position[1], 15, 0, 2 * Math.PI);
+                ctx.fill();
+                ctx.stroke();
+            } else {
+                ctx.beginPath();
+                ctx.moveTo(position[0], position[1] - 15);
+                ctx.lineTo(position[0] - 15, position[1] + 15);
+                ctx.lineTo(position[0] + 15, position[1] + 15);
+                ctx.closePath();
+                ctx.fill();
+                ctx.stroke();
+            }
+            ctx.fillStyle = 'white';
+            ctx.font = '12px Arial';
+            ctx.fillText(number, position[0] - 4, position[1] + 4);
+        }
+
+        function drawBoard() {
+            drawCourt();
+            players.forEach(drawPlayer);
+        }
+
+        function isPointInPlayer(mousePosition, player) {
+            const {position, gender} = player;
+            const touchRadius = 20; // Increase touch area for better smartphone interaction
+            if (gender === 'boy') {
+                const dist = Math.sqrt(Math.pow(mousePosition.x - position[0], 2) + Math.pow(mousePosition.y - position[1], 2));
+                return dist <= touchRadius;
+            } else {
+                const inside = (mousePosition.y < position[1] + touchRadius && mousePosition.y > position[1] - touchRadius &&
+                               mousePosition.x > position[0] - touchRadius && mousePosition.x < position[0] + touchRadius);
+                return inside;
+            }
+        }
+
+        function getMousePos(canvas, evt) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: evt.clientX - rect.left,
+                y: evt.clientY - rect.top
+            };
+        }
+
+        function startDragging(event) {
+            const mousePosition = getMousePos(canvas, event);
+            for (const player of players) {
+                if (isPointInPlayer(mousePosition, player)) {
+                    selectedPlayer = player;
+                    isDragging = true;
+                    offset.x = mousePosition.x - player.position[0];
+                    offset.y = mousePosition.y - player.position[1];
+                    break;
+                }
+            }
+        }
+
+        function drag(event) {
+            if (isDragging && selectedPlayer) {
+                const mousePosition = getMousePos(canvas, event);
+                selectedPlayer.position[0] = mousePosition.x - offset.x;
+                selectedPlayer.position[1] = mousePosition.y - offset.y;
+                drawBoard();
+            }
+        }
+
+        function stopDragging() {
+            isDragging = false;
+            selectedPlayer = null;
+        }
+
+        function handleTouch(eventHandler) {
+            return function(event) {
+                event.preventDefault();
+                const touch = event.changedTouches[0];
+                const mouseEvent = new MouseEvent(eventHandler.name, {
+                    clientX: touch.clientX,
+                    clientY: touch.clientY
+                });
+                eventHandler(mouseEvent);
+            };
+        }
+
+        canvas.addEventListener('mousedown', startDragging);
+        canvas.addEventListener('mousemove', drag);
+        canvas.addEventListener('mouseup', stopDragging);
+        canvas.addEventListener('mouseleave', stopDragging);
+
+        canvas.addEventListener('touchstart', handleTouch(startDragging));
+        canvas.addEventListener('touchmove', handleTouch(drag));
+        canvas.addEventListener('touchend', handleTouch(stopDragging));
+        canvas.addEventListener('touchcancel', handleTouch(stopDragging));
+
+        // Initialize and draw
+        initializePlayers();
+        drawBoard();
+    </script>
+</body>
+</html>
